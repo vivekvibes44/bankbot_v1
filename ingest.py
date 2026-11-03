@@ -1,5 +1,8 @@
+
 from pathlib import Path
+import csv
 import pdfplumber
+
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
@@ -17,27 +20,75 @@ KNOWLEDGE_DIR = BASE_DIR / "knowledge"
 VECTOR_STORE_DIR = BASE_DIR / "vector_store" / "faiss_index"
 
 
-def load_pdfs():
+def load_documents():
     documents = []
 
-    for pdf_path in KNOWLEDGE_DIR.rglob("*.pdf"):
-        category = pdf_path.parent.name
+    for file_path in KNOWLEDGE_DIR.rglob("*"):
+        if not file_path.is_file():
+            continue
 
-        with pdfplumber.open(pdf_path) as pdf:
-            for page_number, page in enumerate(pdf.pages, start=1):
-                text = page.extract_text() or ""
+        file_type = file_path.suffix.lower()
+        category = file_path.parent.name
+        source = str(file_path.relative_to(BASE_DIR))
 
-                if text.strip():
-                    documents.append(
-                        Document(
-                            page_content=text,
-                            metadata={
-                                "source": str(pdf_path.relative_to(BASE_DIR)),
-                                "page": page_number,
-                                "category": category,
-                            },
+        # PDF documents
+        if file_type == ".pdf":
+            with pdfplumber.open(file_path) as pdf:
+                for page_number, page in enumerate(pdf.pages, start=1):
+                    text = page.extract_text() or ""
+
+                    if text.strip():
+                        documents.append(
+                            Document(
+                                page_content=text,
+                                metadata={
+                                    "source": source,
+                                    "page": page_number,
+                                    "category": category,
+                                    "source_type": "pdf",
+                                },
+                            )
                         )
+
+        # Markdown and plain text documents
+        elif file_type in [".md", ".txt"]:
+            text = file_path.read_text(encoding="utf-8")
+
+            if text.strip():
+                documents.append(
+                    Document(
+                        page_content=text,
+                        metadata={
+                            "source": source,
+                            "category": category,
+                            "source_type": file_type[1:],
+                        },
                     )
+                )
+
+        # CSV documents: one document per row
+        elif file_type == ".csv":
+            with open(file_path, "r", encoding="utf-8-sig", newline="") as csv_file:
+                reader = csv.DictReader(csv_file)
+
+                for row in reader:
+                    content = "\n".join(
+                        f"{key}: {value}"
+                        for key, value in row.items()
+                        if value is not None
+                    )
+
+                    if content.strip():
+                        documents.append(
+                            Document(
+                                page_content=content,
+                                metadata={
+                                    "source": source,
+                                    "category": category,
+                                    "source_type": "csv",
+                                },
+                            )
+                        )
 
     return documents
 
@@ -52,13 +103,15 @@ def create_embeddings():
 
 
 def build_vector_store():
-    print("Loading PDF documents...")
-    documents = load_pdfs()
+    print("Loading documents...")
+    documents = load_documents()
 
     if not documents:
-        raise ValueError("No PDF text found. Check the knowledge folder.")
+        raise ValueError(
+            "No documents found. Check the knowledge folder and supported file types."
+        )
 
-    print(f"Loaded {len(documents)} pages.")
+    print(f"Loaded {len(documents)} documents.")
 
     text_splitter = RecursiveCharacterTextSplitter(
         separators=["\n\n", "\n", ". ", " ", ""],
