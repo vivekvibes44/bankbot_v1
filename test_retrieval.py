@@ -36,7 +36,7 @@ retriever = vector_store.as_retriever(
 )
 
 # Ask a test question
-question = "What is the minimum balance for the savings account?"
+question = "What is the interest rate for a Ready Bank personal loan?"
 
 print(f"\nQuestion: {question}\n")
 

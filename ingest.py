@@ -1,4 +1,3 @@
-
 from pathlib import Path
 import csv
 import pdfplumber
@@ -67,28 +66,25 @@ def load_documents():
                 )
 
         # CSV documents: one document per row
-        elif file_type == ".csv":
+        elif file_path.suffix.lower() == ".csv":
             with open(file_path, "r", encoding="utf-8-sig", newline="") as csv_file:
                 reader = csv.DictReader(csv_file)
 
                 for row in reader:
                     content = "\n".join(
-                        f"{key}: {value}"
-                        for key, value in row.items()
-                        if value is not None
+                        f"{key}: {value}" for key, value in row.items() if key and value
                     )
 
-                    if content.strip():
-                        documents.append(
-                            Document(
-                                page_content=content,
-                                metadata={
-                                    "source": source,
-                                    "category": category,
-                                    "source_type": "csv",
-                                },
-                            )
+                    documents.append(
+                        Document(
+                            page_content=content,
+                            metadata={
+                                "source": str(file_path),
+                                "category": category,
+                                "source_type": "csv",
+                            },
                         )
+                    )
 
     return documents
 
@@ -121,15 +117,28 @@ def build_vector_store():
 
     chunks = text_splitter.split_documents(documents)
 
+    if not chunks:
+        raise ValueError("No chunks were created.")
+
     print(f"Created {len(chunks)} chunks.")
 
     embeddings = create_embeddings()
 
-    print("Creating FAISS vector store...")
+    print("Creating FAISS vector store one chunk at a time...")
+
+    # Embed the first chunk and create the vector store
     vector_store = FAISS.from_documents(
-        chunks,
+        [chunks[0]],
         embeddings,
     )
+
+    print(f"Embedded chunk 1 of {len(chunks)}")
+
+    # Embed and add remaining chunks individually
+    for index, chunk in enumerate(chunks[1:], start=2):
+        vector_store.add_documents([chunk])
+
+        print(f"Embedded chunk {index} of {len(chunks)}")
 
     VECTOR_STORE_DIR.mkdir(
         parents=True,
