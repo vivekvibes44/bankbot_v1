@@ -32,9 +32,7 @@ def load_pdfs():
                         Document(
                             page_content=text,
                             metadata={
-                                "source": str(
-                                    pdf_path.relative_to(BASE_DIR)
-                                ),
+                                "source": str(pdf_path.relative_to(BASE_DIR)),
                                 "page": page_number,
                                 "category": category,
                             },
@@ -58,9 +56,7 @@ def build_vector_store():
     documents = load_pdfs()
 
     if not documents:
-        raise ValueError(
-            "No PDF text found. Check the knowledge folder."
-        )
+        raise ValueError("No PDF text found. Check the knowledge folder.")
 
     print(f"Loaded {len(documents)} pages.")
 
