@@ -29,6 +29,49 @@ st.title("Ready Bank Knowledge Assistant")
 BASE_DIR = Path(__file__).resolve().parent
 VECTOR_STORE_DIR = BASE_DIR / "vector_store" / "faiss_index"
 
+
+# Detect document category based on question
+
+def detect_category(question):
+    question = question.lower()
+
+    if any(word in question for word in [
+        "loan", "loans", "personal loan", "home loan",
+        "education loan", "vehicle loan"
+    ]):
+        return "loans"
+
+    elif any(word in question for word in [
+        "savings", "saving account", "interest rate",
+        "deposit", "minimum balance"
+    ]):
+        return "savings_account"
+
+    elif any(word in question for word in [
+        "fee", "fees", "charge", "charges", "penalty"
+    ]):
+        return "fees"
+
+    elif any(word in question for word in [
+        "eligible", "eligibility", "age requirement",
+        "documents", "required documents"
+    ]):
+        return "eligibility"
+
+    elif any(word in question for word in [
+        "internet banking", "mobile banking",
+        "digital banking", "online banking"
+    ]):
+        return "digital_banking"
+
+    elif any(word in question for word in [
+        "faq", "frequently asked"
+    ]):
+        return "faq"
+
+    return None
+
+
 # Load embeddings and FAISS index
 
 
@@ -93,7 +136,7 @@ for message in st.session_state.messages:
 
 # Chat input
 
-question = st.chat_input("Ask a question about Ready Bank...")
+question = st.chat_input("Ask a question...")
 
 if question:
     # Display user question
@@ -105,8 +148,31 @@ if question:
     with st.chat_message("assistant"):
         with st.spinner("Thinking..."):
 
-            # Retrieve relevant chunks
-            documents = retriever.invoke(question)
+            # Retrieve relevant chunks using metadata filtering
+            category = detect_category(question)
+
+            if category:
+                documents = vector_store.similarity_search(
+                    question,
+                    k=3,
+                    filter={"category": category},
+                    fetch_k=10,
+                )
+            else:
+                documents = retriever.invoke(question)
+
+            # Debug: show detected category
+            st.write("Detected category:", category)
+
+            # Debug: inspect retrieved documents
+            with st.expander("Debug: Retrieved Documents"):
+                for i, document in enumerate(documents, start=1):
+                    st.write(f"### Retrieved Document {i}")
+                    st.write("Category:", document.metadata.get("category"))
+                    st.write("Source:", document.metadata.get("source"))
+                    st.write("Type:", document.metadata.get("source_type"))
+                    st.write("Content:")
+                    st.code(document.page_content)
 
             # Build context
             context = "\n\n".join(document.page_content for document in documents)

@@ -99,15 +99,22 @@ def create_embeddings():
 
 
 def build_vector_store():
-    print("Loading documents...")
+    #print("Loading documents...")
     documents = load_documents()
+    print("\n--- LOADED DOCUMENTS ---")
+
+    for doc in documents:
+        print("Category:", doc.metadata.get("category"))
+        print("Source:", doc.metadata.get("source"))
+        print("Content:", doc.page_content[:150])
+        print("-" * 40)
 
     if not documents:
         raise ValueError(
             "No documents found. Check the knowledge folder and supported file types."
         )
 
-    print(f"Loaded {len(documents)} documents.")
+    #print(f"Loaded {len(documents)} documents.")
 
     text_splitter = RecursiveCharacterTextSplitter(
         separators=["\n\n", "\n", ". ", " ", ""],
@@ -120,11 +127,11 @@ def build_vector_store():
     if not chunks:
         raise ValueError("No chunks were created.")
 
-    print(f"Created {len(chunks)} chunks.")
+    #print(f"Created {len(chunks)} chunks.") 
 
     embeddings = create_embeddings()
 
-    print("Creating FAISS vector store one chunk at a time...")
+    #print("Creating FAISS vector store one chunk at a time...")
 
     # Embed the first chunk and create the vector store
     vector_store = FAISS.from_documents(
@@ -132,13 +139,13 @@ def build_vector_store():
         embeddings,
     )
 
-    print(f"Embedded chunk 1 of {len(chunks)}")
+    #print(f"Embedded chunk 1 of {len(chunks)}")
 
     # Embed and add remaining chunks individually
     for index, chunk in enumerate(chunks[1:], start=2):
         vector_store.add_documents([chunk])
 
-        print(f"Embedded chunk {index} of {len(chunks)}")
+        #print(f"Embedded chunk {index} of {len(chunks)}")
 
     VECTOR_STORE_DIR.mkdir(
         parents=True,
@@ -147,8 +154,8 @@ def build_vector_store():
 
     vector_store.save_local(str(VECTOR_STORE_DIR))
 
-    print("FAISS index saved successfully!")
-    print(f"Location: {VECTOR_STORE_DIR}")
+    #print("FAISS index saved successfully!")
+    #print(f"Location: {VECTOR_STORE_DIR}")
 
 
 if __name__ == "__main__":
